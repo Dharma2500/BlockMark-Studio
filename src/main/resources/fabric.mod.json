@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "blockmark",
+  "version": "${version}",
+  "name": "BlockMark Studio",
+  "description": "World-anchored arrows, area outlines and labels for Minecraft tutorial recording.",
+  "authors": ["Vitaly"],
+  "contact": {
+    "sources": "https://github.com/Dharma2500/BlockMark-Studio"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.vitaly.blockmark.BlockMarkStudioClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

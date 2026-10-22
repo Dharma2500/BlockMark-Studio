@@ -1,0 +1,43 @@
+name: Build BlockMark Studio
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25 for Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.7.1'
+
+      - name: Compile and test
+        run: gradle --no-daemon clean build
+
+      - name: Upload distributable JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockmark-studio-jar
+          path: |
+            build/libs/blockmark-studio-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
+          if-no-files-found: error
+          retention-days: 30
