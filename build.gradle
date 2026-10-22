@@ -5,6 +5,10 @@ plugins {
 group = project.maven_group
 version = project.mod_version
 
+loom {
+    accessWidenerPath = file("src/main/resources/blockmark.accesswidener")
+}
+
 base {
     archivesName = project.archives_base_name
 }

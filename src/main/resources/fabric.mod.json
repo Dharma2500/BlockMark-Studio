@@ -9,6 +9,7 @@
     "sources": "https://github.com/Dharma2500/BlockMark-Studio"
   },
   "license": "MIT",
+  "accessWidener": "blockmark.accesswidener",
   "environment": "client",
   "entrypoints": {
     "client": ["dev.vitaly.blockmark.BlockMarkStudioClient"]

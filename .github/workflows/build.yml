@@ -31,33 +31,6 @@ jobs:
       - name: Compile and test
         run: gradle --no-daemon clean build
 
-      - name: Inspect mapped Minecraft render-layer API
-        if: always()
-        shell: bash
-        run: |
-          set +e
-          echo "Looking for the mapped RenderLayers class in Fabric Loom caches"
-          find "$HOME/.gradle/caches/fabric-loom" -type f -name '*.jar' -print0 2>/dev/null | while IFS= read -r -d '' jarfile; do
-            if jar tf "$jarfile" 2>/dev/null | grep -qx 'net/minecraft/client/render/RenderLayers.class'; then
-              echo "FOUND_CLASS_JAR=$jarfile"
-              javap -classpath "$jarfile" -p net.minecraft.client.render.RenderLayers
-              echo "---- Minecraft render pipeline classes ----"
-              for class_name in net.minecraft.client.render.RenderPipelines net.minecraft.client.gl.RenderPipelines com.mojang.blaze3d.pipeline.RenderPipeline; do
-                echo "### $class_name"
-                javap -classpath "$jarfile" -p "$class_name" 2>&1 | head -n 180 || true
-              done
-              echo "---- RenderPipeline builder API ----"
-              javap -classpath "$jarfile" -p 'com.mojang.blaze3d.pipeline.RenderPipeline$Builder' 2>&1 | head -n 220 || true
-              echo "---- RenderLayer factory methods ----"
-              javap -classpath "$jarfile" -p net.minecraft.client.render.RenderLayer 2>&1 | head -n 180 || true
-              echo "---- RenderSetup.Builder methods ----"
-              javap -classpath "$jarfile" -p 'net.minecraft.client.render.RenderSetup$Builder' 2>&1 | head -n 180 || true
-              echo "---- Line pipeline definitions ----"
-              javap -classpath "$jarfile" -c -p net.minecraft.client.gl.RenderPipelines 2>/dev/null | grep -E -A35 -B10 'LINES_TRANSLUCENT|LINES;' | head -n 340 || true
-              echo "---- RenderLayers static initialization for line layers ----"
-              javap -classpath "$jarfile" -c -p net.minecraft.client.render.RenderLayers 2>/dev/null | grep -E -A8 -B4 'LINES_TRANSLUCENT|LINES;' | head -n 220 || true
-            fi
-          done
       - name: Upload distributable JAR
         uses: actions/upload-artifact@v4
         with:

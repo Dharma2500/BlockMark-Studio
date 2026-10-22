@@ -1,9 +1,15 @@
 package dev.vitaly.blockmark;
 
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.platform.DepthTestFunction;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
+import net.minecraft.client.render.RenderSetup;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.BufferAllocator;
@@ -18,8 +24,23 @@ public final class BlockMarkRenderer {
     private static final int CYAN_B = 245;
     private static final int WHITE = 0xFFFFFFFF;
     private static final int LABEL_BACKGROUND = 0xC90A1720;
+
+    // Reuse Minecraft's native line shader/vertex format, but disable the depth test
+    // for the secondary low-alpha pass. The normal pass remains depth-tested.
+    private static final RenderPipeline THROUGH_WALL_PIPELINE = RenderPipeline
+            .builder(RenderPipelines.RENDERTYPE_LINES_SNIPPET)
+            .withLocation(Identifier.of("blockmark", "pipeline/through_wall_lines"))
+            .withBlend(BlendFunction.TRANSLUCENT)
+            .withDepthTestFunction(DepthTestFunction.NO_DEPTH_TEST)
+            .withDepthWrite(false)
+            .build();
+    private static final RenderLayer THROUGH_WALL_LAYER = RenderLayer.of(
+            "blockmark:through_wall_lines",
+            RenderSetup.builder(THROUGH_WALL_PIPELINE).build()
+    );
     private static final BufferAllocator THROUGH_WALL_BUFFER = new BufferAllocator(4096);
-    private static final VertexConsumerProvider.Immediate THROUGH_WALL_CONSUMERS = VertexConsumerProvider.immediate(THROUGH_WALL_BUFFER);
+    private static final VertexConsumerProvider.Immediate THROUGH_WALL_CONSUMERS =
+            VertexConsumerProvider.immediate(THROUGH_WALL_BUFFER);
 
     private BlockMarkRenderer() {
     }
@@ -111,9 +132,8 @@ public final class BlockMarkRenderer {
 
 
     /**
-     * A low-alpha debug line strip uses the vanilla see-through line pipeline.
-     * The regular line pass remains depth-tested; this second pass only leaves a
-     * faint turquoise trace where the main shape is occluded by opaque blocks.
+     * Draw a dim, blended secondary pass with depth testing disabled.
+     * The bright primary line is still depth-tested, so hidden geometry stays subtle.
      */
     private static void drawThroughWallArrow(MatrixStack.Entry matrix, Annotation annotation) {
         Vec3d start = annotation.start();
@@ -181,7 +201,7 @@ public final class BlockMarkRenderer {
             return;
         }
 
-        VertexConsumer hidden = THROUGH_WALL_CONSUMERS.getBuffer(RenderLayers.linesTranslucent());
+        VertexConsumer hidden = THROUGH_WALL_CONSUMERS.getBuffer(THROUGH_WALL_LAYER);
         for (Vec3d point : points) {
             hidden.vertex(matrix, (float) point.x, (float) point.y, (float) point.z)
                     .color(35, 205, 225, 58)
