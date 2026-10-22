@@ -203,10 +203,22 @@ public final class BlockMarkRenderer {
         }
 
         VertexConsumer hidden = THROUGH_WALL_CONSUMERS.getBuffer(THROUGH_WALL_LAYER);
-        for (Vec3d point : points) {
-            hidden.vertex(matrix, (float) point.x, (float) point.y, (float) point.z)
+        // The custom line pipeline uses the same position/color/normal vertex format
+        // as Minecraft's regular line layer. Keep a consistent normal for each pair.
+        for (int i = 0; i + 1 < points.size(); i += 2) {
+            Vec3d from = points.get(i);
+            Vec3d to = points.get(i + 1);
+            Vec3d delta = to.subtract(from);
+            Vec3d normal = delta.lengthSquared() < 0.000001
+                    ? new Vec3d(0, 1, 0)
+                    : delta.normalize();
+
+            hidden.vertex(matrix, (float) from.x, (float) from.y, (float) from.z)
                     .color(35, 205, 225, 58)
-                    .normal(matrix, 0.0f, 1.0f, 0.0f);
+                    .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z);
+            hidden.vertex(matrix, (float) to.x, (float) to.y, (float) to.z)
+                    .color(35, 205, 225, 58)
+                    .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z);
         }
         THROUGH_WALL_CONSUMERS.draw();
     }
