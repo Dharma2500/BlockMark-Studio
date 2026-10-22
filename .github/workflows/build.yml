@@ -46,6 +46,14 @@ jobs:
                 echo "### $class_name"
                 javap -classpath "$jarfile" -p "$class_name" 2>&1 | head -n 180 || true
               done
+              echo "---- RenderPipeline builder API ----"
+              javap -classpath "$jarfile" -p 'com.mojang.blaze3d.pipeline.RenderPipeline$Builder' 2>&1 | head -n 220 || true
+              echo "---- RenderLayer factory methods ----"
+              javap -classpath "$jarfile" -p net.minecraft.client.render.RenderLayer 2>&1 | head -n 180 || true
+              echo "---- RenderSetup.Builder methods ----"
+              javap -classpath "$jarfile" -p 'net.minecraft.client.render.RenderSetup$Builder' 2>&1 | head -n 180 || true
+              echo "---- Line pipeline definitions ----"
+              javap -classpath "$jarfile" -c -p net.minecraft.client.gl.RenderPipelines 2>/dev/null | grep -E -A35 -B10 'LINES_TRANSLUCENT|LINES;' | head -n 340 || true
               echo "---- RenderLayers static initialization for line layers ----"
               javap -classpath "$jarfile" -c -p net.minecraft.client.render.RenderLayers 2>/dev/null | grep -E -A8 -B4 'LINES_TRANSLUCENT|LINES;' | head -n 220 || true
             fi
