@@ -41,6 +41,13 @@ jobs:
             if jar tf "$jarfile" 2>/dev/null | grep -qx 'net/minecraft/client/render/RenderLayers.class'; then
               echo "FOUND_CLASS_JAR=$jarfile"
               javap -classpath "$jarfile" -p net.minecraft.client.render.RenderLayers
+              echo "---- Minecraft render pipeline classes ----"
+              for class_name in net.minecraft.client.render.RenderPipelines net.minecraft.client.gl.RenderPipelines com.mojang.blaze3d.pipeline.RenderPipeline; do
+                echo "### $class_name"
+                javap -classpath "$jarfile" -p "$class_name" 2>&1 | head -n 180 || true
+              done
+              echo "---- RenderLayers static initialization for line layers ----"
+              javap -classpath "$jarfile" -c -p net.minecraft.client.render.RenderLayers 2>/dev/null | grep -E -A8 -B4 'LINES_TRANSLUCENT|LINES;' | head -n 220 || true
             fi
           done
       - name: Upload distributable JAR
