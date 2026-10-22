@@ -3,6 +3,7 @@ package dev.vitaly.blockmark;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -207,11 +208,78 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
                             return 1;
                         }))
                         .then(ClientCommandManager.literal("list").executes(context -> {
-                            tell(MinecraftClient.getInstance(), "Сохранено отметок: " + ANNOTATIONS.size() + ".");
+                            listAnnotations(MinecraftClient.getInstance());
                             return 1;
                         }))
+                        .then(ClientCommandManager.literal("remove")
+                                .then(ClientCommandManager.argument("number", IntegerArgumentType.integer(1))
+                                        .executes(context -> {
+                                            removeAnnotationByIndex(MinecraftClient.getInstance(),
+                                                    IntegerArgumentType.getInteger(context, "number"));
+                                            return 1;
+                                        })))
                 )
         );
+    }
+
+    /**
+     * Prints a numbered list of annotations in the current dimension.
+     * The numbers shown here are accepted by /blockmark remove.
+     */
+    private static void listAnnotations(MinecraftClient client) {
+        List<Annotation> current = annotationsForCurrentDimension();
+        if (current.isEmpty()) {
+            tell(client, "В этом измерении нет меток.");
+            return;
+        }
+
+        tell(client, "Метки в текущем измерении: " + current.size()
+                + ". Удалить одну: /blockmark remove <номер>");
+        for (int i = 0; i < current.size(); i++) {
+            tell(client, (i + 1) + ". " + describeAnnotation(current.get(i)));
+        }
+    }
+
+    private static void removeAnnotationByIndex(MinecraftClient client, int number) {
+        List<Annotation> current = annotationsForCurrentDimension();
+        if (number < 1 || number > current.size()) {
+            tell(client, "Метки с номером " + number + " нет. В текущем измерении меток: "
+                    + current.size() + ". Сначала выполни /blockmark list.");
+            return;
+        }
+
+        Annotation selected = current.get(number - 1);
+        if (!ANNOTATIONS.remove(selected)) {
+            tell(client, "Не удалось найти выбранную метку. Выполни /blockmark list ещё раз.");
+            return;
+        }
+
+        saveStore();
+        tell(client, "Удалена метка №" + number + ": " + describeAnnotation(selected));
+    }
+
+    private static String describeAnnotation(Annotation annotation) {
+        if (annotation == null || annotation.type == null) {
+            return "Неизвестная метка";
+        }
+
+        int x1 = (int) Math.floor(annotation.x1);
+        int y1 = (int) Math.floor(annotation.y1);
+        int z1 = (int) Math.floor(annotation.z1);
+        int x2 = (int) Math.floor(annotation.x2);
+        int y2 = (int) Math.floor(annotation.y2);
+        int z2 = (int) Math.floor(annotation.z2);
+
+        return switch (annotation.type) {
+            case ARROW -> "Стрелка " + annotation.displayText()
+                    + " (" + x1 + ", " + y1 + ", " + z1 + " → "
+                    + x2 + ", " + y2 + ", " + z2 + ")";
+            case AREA -> "Область " + annotation.displayText()
+                    + " (" + x1 + ", " + y1 + ", " + z1 + " → "
+                    + x2 + ", " + y2 + ", " + z2 + ")";
+            case LABEL -> "Подпись «" + annotation.displayText() + "»"
+                    + " (" + x1 + ", " + y1 + ", " + z1 + ")";
+        };
     }
 
     private static void undo(MinecraftClient client) {
