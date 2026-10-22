@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -61,6 +62,8 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
     public void onInitializeClient() {
         ClientTickEvents.END_CLIENT_TICK.register(BlockMarkStudioClient::tick);
         WorldRenderEvents.AFTER_ENTITIES.register(BlockMarkRenderer::render);
+        HudElementRegistry.addLast(Identifier.of(MOD_ID, "measurement_labels"),
+                (drawContext, deltaTracker) -> BlockMarkRenderer.renderProjectedLabels(drawContext));
         registerCommands();
         LOGGER.info("BlockMark Studio initialized for Minecraft 1.21.11.");
     }

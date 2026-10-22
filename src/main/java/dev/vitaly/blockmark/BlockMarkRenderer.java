@@ -6,6 +6,7 @@ import com.mojang.blaze3d.platform.DepthTestFunction;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderLayers;
@@ -16,6 +17,7 @@ import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Vector3f;
 
 import java.util.List;
 
@@ -23,8 +25,6 @@ public final class BlockMarkRenderer {
     private static final int CYAN_R = 49;
     private static final int CYAN_G = 230;
     private static final int CYAN_B = 245;
-    private static final int WHITE = 0xFFFFFFFF;
-    private static final int LABEL_BACKGROUND = 0xE8101924;
 
     // Reuse Minecraft's native line shader/vertex format, but disable the depth test
     // for the secondary low-alpha pass. The normal pass remains depth-tested.
@@ -42,9 +42,6 @@ public final class BlockMarkRenderer {
     private static final BufferAllocator THROUGH_WALL_BUFFER = new BufferAllocator(4096);
     private static final VertexConsumerProvider.Immediate THROUGH_WALL_CONSUMERS =
             VertexConsumerProvider.immediate(THROUGH_WALL_BUFFER);
-    private static final BufferAllocator LABEL_BUFFER = new BufferAllocator(16_384);
-    private static final VertexConsumerProvider.Immediate LABEL_CONSUMERS =
-            VertexConsumerProvider.immediate(LABEL_BUFFER);
 
     private BlockMarkRenderer() {
     }
@@ -87,25 +84,111 @@ public final class BlockMarkRenderer {
         }
         matrices.pop();
 
+    }
+
+
+    /**
+     * Renders labels in the HUD after projecting their world-space anchors onto the screen.
+     * Unlike world-space font buffers, this is a normal GUI draw pass and is reliably visible.
+     */
+    public static void renderProjectedLabels(DrawContext context) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!BlockMarkStudioClient.isEnabled() || client.world == null || client.player == null
+                || client.currentScreen != null) {
+            return;
+        }
+
+        List<Annotation> annotations = BlockMarkStudioClient.annotationsForCurrentDimension();
+        if (annotations.isEmpty()) {
+            return;
+        }
+
+        Vec3d cameraPosition = client.gameRenderer.getCamera().getCameraPos();
+        Vector3f forwardVector = new Vector3f(0.0f, 0.0f, -1.0f);
+        client.gameRenderer.getCamera().getRotation().transform(forwardVector);
+        Vec3d forward = new Vec3d(forwardVector.x(), forwardVector.y(), forwardVector.z());
+
+        int screenWidth = client.getWindow().getScaledWidth();
+        int screenHeight = client.getWindow().getScaledHeight();
+
         for (Annotation annotation : annotations) {
             if (annotation == null || annotation.type == null) {
                 continue;
             }
-            if (annotation.type == Annotation.Type.LABEL) {
-                drawBillboardText(client, consumers, matrices, camera, annotation.start(), annotation.displayText());
-            } else if (annotation.type == Annotation.Type.ARROW) {
-                Vec3d middle = annotation.start().add(annotation.end()).multiply(0.5);
-                drawBillboardText(client, consumers, matrices, camera, middle.add(0, 0.2, 0), annotation.displayText());
-            } else if (annotation.type == Annotation.Type.AREA) {
-                double minX = Math.min(annotation.x1, annotation.x2);
-                double minY = Math.min(annotation.y1, annotation.y2);
-                double minZ = Math.min(annotation.z1, annotation.z2);
-                double maxX = Math.max(annotation.x1, annotation.x2) + 1.0;
-                double maxY = Math.max(annotation.y1, annotation.y2) + 1.0;
-                double maxZ = Math.max(annotation.z1, annotation.z2) + 1.0;
-                Vec3d center = new Vec3d((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
-                drawBillboardText(client, consumers, matrices, camera, center.add(0, 0.2, 0), annotation.displayText());
+
+            Vec3d anchor = labelAnchor(annotation);
+            Vec3d relative = anchor.subtract(cameraPosition);
+            // Ignore anchors behind the camera; front-facing labels are projected with Minecraft's own
+            // camera/projection matrices so they track the line or box while the player turns.
+            if (relative.dotProduct(forward) <= 0.05) {
+                continue;
             }
+
+            Vec3d projected = client.gameRenderer.project(anchor);
+            if (!Double.isFinite(projected.x) || !Double.isFinite(projected.y)) {
+                continue;
+            }
+            if (projected.x < -1.25 || projected.x > 1.25
+                    || projected.y < -1.25 || projected.y > 1.25) {
+                continue;
+            }
+
+            int x = (int) Math.round((projected.x + 1.0) * 0.5 * screenWidth);
+            int y = (int) Math.round((1.0 - projected.y) * 0.5 * screenHeight);
+            drawMeasurementBadge(context, client, annotation.displayText(), annotation.detailText(), x, y,
+                    screenWidth, screenHeight);
+        }
+    }
+
+    private static Vec3d labelAnchor(Annotation annotation) {
+        if (annotation.type == Annotation.Type.ARROW) {
+            return annotation.start().add(annotation.end()).multiply(0.5).add(0.0, 0.45, 0.0);
+        }
+        if (annotation.type == Annotation.Type.AREA) {
+            double minX = Math.min(annotation.x1, annotation.x2);
+            double minY = Math.min(annotation.y1, annotation.y2);
+            double minZ = Math.min(annotation.z1, annotation.z2);
+            double maxX = Math.max(annotation.x1, annotation.x2) + 1.0;
+            double maxY = Math.max(annotation.y1, annotation.y2) + 1.0;
+            double maxZ = Math.max(annotation.z1, annotation.z2) + 1.0;
+            return new Vec3d((minX + maxX) / 2.0, (minY + maxY) / 2.0,
+                    (minZ + maxZ) / 2.0).add(0.0, 0.45, 0.0);
+        }
+        return annotation.start();
+    }
+
+    private static void drawMeasurementBadge(DrawContext context, MinecraftClient client,
+                                             String primary, String secondary, int centerX, int centerY,
+                                             int screenWidth, int screenHeight) {
+        if (primary == null || primary.isBlank()) {
+            return;
+        }
+
+        final float textScale = 1.65f;
+        TextRenderer textRenderer = client.textRenderer;
+        int scaledTextWidth = (int) Math.ceil(textRenderer.getWidth(primary) * textScale);
+        int panelWidth = Math.max(112, scaledTextWidth + 28);
+        boolean hasSecondary = secondary != null && !secondary.isBlank();
+        int panelHeight = hasSecondary ? 48 : 32;
+
+        centerX = Math.max(panelWidth / 2 + 3, Math.min(screenWidth - panelWidth / 2 - 3, centerX));
+        centerY = Math.max(panelHeight / 2 + 3, Math.min(screenHeight - panelHeight / 2 - 3, centerY));
+        int left = centerX - panelWidth / 2;
+        int top = centerY - panelHeight / 2;
+
+        // Bright cyan rim + opaque dark interior keeps the count readable on any block texture.
+        context.fill(left - 2, top - 2, left + panelWidth + 2, top + panelHeight + 2, 0xFF31E6F5);
+        context.fill(left, top, left + panelWidth, top + panelHeight, 0xF00A1622);
+
+        var guiMatrices = context.getMatrices();
+        guiMatrices.pushMatrix();
+        guiMatrices.translate((float) centerX, (float) (top + 5));
+        guiMatrices.scale(textScale, textScale);
+        context.drawCenteredTextWithShadow(textRenderer, primary, 0, 0, 0xFFFFFFFF);
+        guiMatrices.popMatrix();
+
+        if (hasSecondary) {
+            context.drawCenteredTextWithShadow(textRenderer, secondary, centerX, top + 29, 0xFF8FF7FF);
         }
     }
 
@@ -305,26 +388,4 @@ public final class BlockMarkRenderer {
                 .lineWidth(lineWidth);
     }
 
-    private static void drawBillboardText(MinecraftClient client, VertexConsumerProvider consumers,
-                                          MatrixStack matrices, Vec3d camera, Vec3d worldPosition, String text) {
-        if (text == null || text.isBlank()) {
-            return;
-        }
-
-        matrices.push();
-        matrices.translate(worldPosition.x - camera.x, worldPosition.y - camera.y, worldPosition.z - camera.z);
-        matrices.multiply(client.gameRenderer.getCamera().getRotation());
-        // Scale with viewing distance to keep the measurement legible from nearby and far away.
-        float textScale = (float) Math.max(0.075, Math.min(0.18, camera.distanceTo(worldPosition) * 0.0045));
-        matrices.scale(-textScale, -textScale, textScale);
-
-        TextRenderer renderer = client.textRenderer;
-        float x = -renderer.getWidth(text) / 2.0f;
-        renderer.draw(text, x, 0, WHITE, true, matrices.peek().getPositionMatrix(),
-                consumers, TextRenderer.TextLayerType.SEE_THROUGH, LABEL_BACKGROUND, 15728880);
-        if (consumers instanceof VertexConsumerProvider.Immediate immediate) {
-            immediate.draw();
-        }
-        matrices.pop();
-    }
 }

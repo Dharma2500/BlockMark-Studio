@@ -79,12 +79,32 @@ public final class Annotation {
             return measurementLabel(start(), end());
         }
         if (type == Type.AREA) {
-            long width = Math.abs(Math.round(x2 - x1)) + 1L;
-            long height = Math.abs(Math.round(y2 - y1)) + 1L;
-            long depth = Math.abs(Math.round(z2 - z1)) + 1L;
-            return width + " × " + depth + " × " + height + " блоков";
+            long total = areaWidth() * areaHeight() * areaDepth();
+            return String.format(Locale.ROOT, "%,d", total).replace(',', ' ') + " блоков";
         }
         return text == null || text.isBlank() ? "LABEL" : text;
+    }
+
+    /**
+     * A smaller second line used by the HUD measurement badge for areas.
+     */
+    public String detailText() {
+        if (type != Type.AREA) {
+            return "";
+        }
+        return areaWidth() + " × " + areaDepth() + " × " + areaHeight();
+    }
+
+    private long areaWidth() {
+        return Math.abs(Math.round(x2 - x1)) + 1L;
+    }
+
+    private long areaHeight() {
+        return Math.abs(Math.round(y2 - y1)) + 1L;
+    }
+
+    private long areaDepth() {
+        return Math.abs(Math.round(z2 - z1)) + 1L;
     }
 
     private static String russianBlocksWord(long count) {
