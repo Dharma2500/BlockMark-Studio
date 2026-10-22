@@ -145,7 +145,7 @@ public final class BlockMarkRenderer {
             points.add(end);
             points.add(base.subtract(secondSide.multiply(headWidth)));
         }
-        drawThroughWallStrip(matrix, points);
+        drawThroughWallLines(matrix, points);
     }
 
     private static void drawThroughWallArea(MatrixStack.Entry matrix, Annotation annotation) {
@@ -163,14 +163,17 @@ public final class BlockMarkRenderer {
                 new Vec3d(maxX, maxY, maxZ), new Vec3d(minX, maxY, maxZ)
         };
 
-        // One continuous walk through all 12 box edges. A few edges are retraced
-        // to keep the line strip connected; the extra faint pixels are intentional.
-        int[] walk = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4, 5};
-        List<Vec3d> points = new java.util.ArrayList<>(walk.length);
-        for (int index : walk) {
-            points.add(c[index]);
+        int[][] edges = {
+                {0, 1}, {1, 2}, {2, 3}, {3, 0},
+                {4, 5}, {5, 6}, {6, 7}, {7, 4},
+                {0, 4}, {1, 5}, {2, 6}, {3, 7}
+        };
+        List<Vec3d> points = new java.util.ArrayList<>(edges.length * 2);
+        for (int[] edge : edges) {
+            points.add(c[edge[0]]);
+            points.add(c[edge[1]]);
         }
-        drawThroughWallStrip(matrix, points);
+        drawThroughWallLines(matrix, points);
     }
 
     private static void drawThroughWallStrip(MatrixStack.Entry matrix, List<Vec3d> points) {
@@ -178,7 +181,7 @@ public final class BlockMarkRenderer {
             return;
         }
 
-        VertexConsumer hidden = THROUGH_WALL_CONSUMERS.getBuffer(RenderLayers.debugLineStrip(1.0));
+        VertexConsumer hidden = THROUGH_WALL_CONSUMERS.getBuffer(RenderLayers.linesTranslucent());
         for (Vec3d point : points) {
             hidden.vertex(matrix, (float) point.x, (float) point.y, (float) point.z)
                     .color(35, 205, 225, 58)
