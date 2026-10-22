@@ -19,12 +19,15 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class BlockMarkRenderer {
     private static final int CYAN_R = 49;
     private static final int CYAN_G = 230;
     private static final int CYAN_B = 245;
+    private static final double LABEL_MAX_DISTANCE = 48.0;
+    private static final double LABEL_FULL_SIZE_DISTANCE = 8.0;
 
     // Reuse Minecraft's native line shader/vertex format, but disable the depth test
     // for the secondary low-alpha pass. The normal pass remains depth-tested.
@@ -111,6 +114,7 @@ public final class BlockMarkRenderer {
         int screenWidth = client.getWindow().getScaledWidth();
         int screenHeight = client.getWindow().getScaledHeight();
 
+        List<int[]> occupiedRects = new ArrayList<>();
         for (Annotation annotation : annotations) {
             if (annotation == null || annotation.type == null) {
                 continue;
@@ -118,9 +122,10 @@ public final class BlockMarkRenderer {
 
             Vec3d anchor = labelAnchor(annotation);
             Vec3d relative = anchor.subtract(cameraPosition);
-            // Ignore anchors behind the camera; front-facing labels are projected with Minecraft's own
-            // camera/projection matrices so they track the line or box while the player turns.
-            if (relative.dotProduct(forward) <= 0.05) {
+            double distance = cameraPosition.distanceTo(anchor);
+
+            // Hide labels outside useful working range and never show points behind the camera.
+            if (distance >= LABEL_MAX_DISTANCE || relative.dotProduct(forward) <= 0.05) {
                 continue;
             }
 
@@ -135,8 +140,14 @@ public final class BlockMarkRenderer {
 
             int x = (int) Math.round((projected.x + 1.0) * 0.5 * screenWidth);
             int y = (int) Math.round((1.0 - projected.y) * 0.5 * screenHeight);
+            float sizeScale = distance <= LABEL_FULL_SIZE_DISTANCE
+                    ? 1.0f
+                    : (float) Math.max(0.38, 1.0 - (distance - LABEL_FULL_SIZE_DISTANCE) * 0.022);
+            float opacity = distance <= 28.0
+                    ? 1.0f
+                    : (float) Math.max(0.0, (LABEL_MAX_DISTANCE - distance) / (LABEL_MAX_DISTANCE - 28.0));
             drawMeasurementBadge(context, client, annotation.displayText(), annotation.detailText(), x, y,
-                    screenWidth, screenHeight);
+                    sizeScale, opacity, screenWidth, screenHeight, occupiedRects);
         }
     }
 
@@ -158,38 +169,93 @@ public final class BlockMarkRenderer {
     }
 
     private static void drawMeasurementBadge(DrawContext context, MinecraftClient client,
-                                             String primary, String secondary, int centerX, int centerY,
-                                             int screenWidth, int screenHeight) {
-        if (primary == null || primary.isBlank()) {
+                                             String primary, String secondary, int desiredCenterX, int desiredCenterY,
+                                             float sizeScale, float opacity,
+                                             int screenWidth, int screenHeight, List<int[]> occupiedRects) {
+        if (primary == null || primary.isBlank() || opacity <= 0.01f) {
             return;
         }
 
         final float textScale = 1.65f;
         TextRenderer textRenderer = client.textRenderer;
-        int scaledTextWidth = (int) Math.ceil(textRenderer.getWidth(primary) * textScale);
-        int panelWidth = Math.max(112, scaledTextWidth + 28);
         boolean hasSecondary = secondary != null && !secondary.isBlank();
-        int panelHeight = hasSecondary ? 48 : 32;
 
-        centerX = Math.max(panelWidth / 2 + 3, Math.min(screenWidth - panelWidth / 2 - 3, centerX));
-        centerY = Math.max(panelHeight / 2 + 3, Math.min(screenHeight - panelHeight / 2 - 3, centerY));
-        int left = centerX - panelWidth / 2;
-        int top = centerY - panelHeight / 2;
+        // Size panel for the larger of the count and its dimension subtitle.
+        int widestText = textRenderer.getWidth(primary);
+        if (hasSecondary) {
+            widestText = Math.max(widestText, textRenderer.getWidth(secondary));
+        }
+        int panelWidth = Math.max(112, (int) Math.ceil(widestText * textScale + 28));
+        int basePanelHeight = hasSecondary ? 48 : 32;
+        panelWidth = Math.max(40, Math.round(panelWidth * sizeScale));
+        int panelHeight = Math.max(16, Math.round(basePanelHeight * sizeScale));
+        int rim = Math.max(1, Math.round(2.0f * sizeScale));
 
-        // Bright cyan rim + opaque dark interior keeps the count readable on any block texture.
-        context.fill(left - 2, top - 2, left + panelWidth + 2, top + panelHeight + 2, 0xFF31E6F5);
-        context.fill(left, top, left + panelWidth, top + panelHeight, 0xF00A1622);
+        int halfWidth = panelWidth / 2;
+        int halfHeight = panelHeight / 2;
+        int centerX = Math.max(halfWidth + rim + 2,
+                Math.min(screenWidth - halfWidth - rim - 2, desiredCenterX));
+        int centerY = Math.max(halfHeight + rim + 2,
+                Math.min(screenHeight - halfHeight - rim - 2, desiredCenterY));
+
+        // If several annotations project to almost the same pixel (for example an arrow and
+        // a box around it), move later badges slightly up/down instead of drawing them on top.
+        int step = panelHeight + Math.max(5, Math.round(8.0f * sizeScale));
+        int[] offsets = {0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5};
+        for (int offset : offsets) {
+            int candidateY = Math.max(halfHeight + rim + 2,
+                    Math.min(screenHeight - halfHeight - rim - 2, centerY + offset * step));
+            int left = centerX - halfWidth;
+            int top = candidateY - halfHeight;
+            int right = centerX + (panelWidth - halfWidth);
+            int bottom = candidateY + (panelHeight - halfHeight);
+            boolean overlaps = false;
+            for (int[] rect : occupiedRects) {
+                if (left < rect[2] && right > rect[0] && top < rect[3] && bottom > rect[1]) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (!overlaps) {
+                centerY = candidateY;
+                break;
+            }
+        }
+
+        int left = centerX - halfWidth;
+        int top = centerY - halfHeight;
+        int right = centerX + (panelWidth - halfWidth);
+        int bottom = centerY + (panelHeight - halfHeight);
+        occupiedRects.add(new int[] {left - rim, top - rim, right + rim, bottom + rim});
+
+        // More transparent navy fill with a softly translucent turquoise rim.
+        context.fill(left - rim, top - rim, right + rim, bottom + rim,
+                withOpacity(0xD931E6F5, opacity));
+        context.fill(left, top, right, bottom,
+                withOpacity(0x990A1622, opacity));
 
         var guiMatrices = context.getMatrices();
         guiMatrices.pushMatrix();
-        guiMatrices.translate((float) centerX, (float) (top + 5));
-        guiMatrices.scale(textScale, textScale);
-        context.drawCenteredTextWithShadow(textRenderer, primary, 0, 0, 0xFFFFFFFF);
+        guiMatrices.translate((float) centerX, (float) (top + Math.max(2, Math.round(5.0f * sizeScale))));
+        guiMatrices.scale(textScale * sizeScale, textScale * sizeScale);
+        context.drawCenteredTextWithShadow(textRenderer, primary, 0, 0,
+                withOpacity(0xFFFFFFFF, opacity));
         guiMatrices.popMatrix();
 
         if (hasSecondary) {
-            context.drawCenteredTextWithShadow(textRenderer, secondary, centerX, top + 29, 0xFF8FF7FF);
+            guiMatrices.pushMatrix();
+            guiMatrices.translate((float) centerX, (float) (top + Math.round(29.0f * sizeScale)));
+            guiMatrices.scale(sizeScale, sizeScale);
+            context.drawCenteredTextWithShadow(textRenderer, secondary, 0, 0,
+                    withOpacity(0xFF8FF7FF, opacity));
+            guiMatrices.popMatrix();
         }
+    }
+
+    private static int withOpacity(int argb, float opacity) {
+        int baseAlpha = (argb >>> 24) & 0xFF;
+        int alpha = Math.max(0, Math.min(255, Math.round(baseAlpha * opacity)));
+        return (argb & 0x00FFFFFF) | (alpha << 24);
     }
 
     private static void drawArrow(VertexConsumer consumer, MatrixStack.Entry matrix, Annotation annotation) {
