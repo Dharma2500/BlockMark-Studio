@@ -176,7 +176,7 @@ public final class BlockMarkRenderer {
         drawThroughWallLines(matrix, points);
     }
 
-    private static void drawThroughWallStrip(MatrixStack.Entry matrix, List<Vec3d> points) {
+    private static void drawThroughWallLines(MatrixStack.Entry matrix, List<Vec3d> points) {
         if (points.size() < 2) {
             return;
         }
