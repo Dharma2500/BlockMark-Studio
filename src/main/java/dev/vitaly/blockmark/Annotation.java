@@ -82,7 +82,7 @@ public final class Annotation {
             long width = Math.abs(Math.round(x2 - x1)) + 1L;
             long height = Math.abs(Math.round(y2 - y1)) + 1L;
             long depth = Math.abs(Math.round(z2 - z1)) + 1L;
-            return width + " x " + depth + " x " + height;
+            return width + " × " + depth + " × " + height + " blocks";
         }
         return text == null || text.isBlank() ? "LABEL" : text;
     }

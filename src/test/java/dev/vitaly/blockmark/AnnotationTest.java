@@ -25,7 +25,7 @@ class AnnotationTest {
                 "minecraft:overworld"
         );
 
-        assertEquals("16 x 12 x 8", annotation.displayText());
+        assertEquals("16 × 12 × 8 blocks", annotation.displayText());
     }
 
     @Test

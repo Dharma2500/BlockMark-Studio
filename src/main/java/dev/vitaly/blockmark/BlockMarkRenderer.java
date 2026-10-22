@@ -24,7 +24,7 @@ public final class BlockMarkRenderer {
     private static final int CYAN_G = 230;
     private static final int CYAN_B = 245;
     private static final int WHITE = 0xFFFFFFFF;
-    private static final int LABEL_BACKGROUND = 0xC90A1720;
+    private static final int LABEL_BACKGROUND = 0xE8101924;
 
     // Reuse Minecraft's native line shader/vertex format, but disable the depth test
     // for the secondary low-alpha pass. The normal pass remains depth-tested.
@@ -101,7 +101,7 @@ public final class BlockMarkRenderer {
                 double maxY = Math.max(annotation.y1, annotation.y2) + 1.0;
                 double maxZ = Math.max(annotation.z1, annotation.z2) + 1.0;
                 Vec3d center = new Vec3d((minX + maxX) / 2.0, (minY + maxY) / 2.0, (minZ + maxZ) / 2.0);
-                drawBillboardText(client, consumers, matrices, camera, center, annotation.displayText());
+                drawBillboardText(client, consumers, matrices, camera, center.add(0, 0.2, 0), annotation.displayText());
             }
         }
     }
@@ -214,9 +214,9 @@ public final class BlockMarkRenderer {
                     : delta.normalize();
 
             hidden.vertex(matrix, (float) from.x, (float) from.y, (float) from.z)
-                    .color(35, 205, 225, 58)
+                    .color(35, 215, 240, 105)
                     .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
-                    .lineWidth(1.0f);
+                    .lineWidth(5.0f);
             hidden.vertex(matrix, (float) to.x, (float) to.y, (float) to.z)
                     .color(35, 205, 225, 58)
                     .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
@@ -262,37 +262,25 @@ public final class BlockMarkRenderer {
             return;
         }
 
-        // Thin neighbouring cyan strands approximate a soft neon halo without shaders.
+        // Three screen-space line widths keep annotations readable at a distance:
+        // a broad cyan halo, a saturated cyan body, and a crisp white core.
         Vec3d axis = direction.normalize();
-        Vec3d reference = Math.abs(axis.y) > 0.92 ? new Vec3d(1, 0, 0) : new Vec3d(0, 1, 0);
-        Vec3d side = axis.crossProduct(reference).normalize();
-        Vec3d otherSide = axis.crossProduct(side).normalize();
-
-        for (int i = -2; i <= 2; i++) {
-            for (int j = -2; j <= 2; j++) {
-                if (i == 0 && j == 0) {
-                    continue;
-                }
-                double offsetScale = 0.008 * Math.sqrt(i * i + j * j);
-                Vec3d offset = side.multiply(i * offsetScale).add(otherSide.multiply(j * offsetScale));
-                addSegment(consumer, matrix, from.add(offset), to.add(offset), 28, 195, 232, 42, axis);
-            }
-        }
-        addSegment(consumer, matrix, from, to, CYAN_R, CYAN_G, CYAN_B, 190, axis);
-        addSegment(consumer, matrix, from, to, 235, 255, 255, 255, axis);
+        addSegment(consumer, matrix, from, to, 0, 190, 255, 120, axis, 8.0f);
+        addSegment(consumer, matrix, from, to, CYAN_R, CYAN_G, CYAN_B, 255, axis, 5.0f);
+        addSegment(consumer, matrix, from, to, 245, 255, 255, 255, axis, 2.25f);
     }
 
     private static void addSegment(VertexConsumer consumer, MatrixStack.Entry matrix,
                                    Vec3d from, Vec3d to, int red, int green, int blue, int alpha,
-                                   Vec3d normal) {
+                                   Vec3d normal, float lineWidth) {
         consumer.vertex(matrix, (float) from.x, (float) from.y, (float) from.z)
                 .color(red, green, blue, alpha)
                 .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
-                    .lineWidth(1.0f);
+                .lineWidth(lineWidth);
         consumer.vertex(matrix, (float) to.x, (float) to.y, (float) to.z)
                 .color(red, green, blue, alpha)
                 .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
-                    .lineWidth(1.0f);
+                .lineWidth(lineWidth);
     }
 
     private static void drawBillboardText(MinecraftClient client, VertexConsumerProvider consumers,
@@ -304,7 +292,9 @@ public final class BlockMarkRenderer {
         matrices.push();
         matrices.translate(worldPosition.x - camera.x, worldPosition.y - camera.y, worldPosition.z - camera.z);
         matrices.multiply(client.gameRenderer.getCamera().getRotation());
-        matrices.scale(-0.025f, -0.025f, 0.025f);
+                // Grow world-space text with distance so its apparent on-screen size stays readable.
+        float textScale = (float) Math.max(0.025, Math.min(0.12, camera.distanceTo(worldPosition) * 0.0024));
+        matrices.scale(-textScale, -textScale, textScale);
 
         TextRenderer renderer = client.textRenderer;
         float x = -renderer.getWidth(text) / 2.0f;

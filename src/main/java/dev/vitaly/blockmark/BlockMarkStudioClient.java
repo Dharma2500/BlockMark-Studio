@@ -47,7 +47,6 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
 
     private static final KeyBinding ARROW_KEY = register("key.blockmark.arrow", GLFW.GLFW_KEY_K);
     private static final KeyBinding AREA_KEY = register("key.blockmark.area", GLFW.GLFW_KEY_J);
-    private static final KeyBinding LABEL_KEY = register("key.blockmark.label", GLFW.GLFW_KEY_M);
     private static final KeyBinding UNDO_KEY = register("key.blockmark.undo", GLFW.GLFW_KEY_BACKSPACE);
     private static final KeyBinding TOGGLE_KEY = register("key.blockmark.toggle", GLFW.GLFW_KEY_B);
 
@@ -84,9 +83,6 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         while (AREA_KEY.wasPressed()) {
             handleAreaKey(client);
         }
-        while (LABEL_KEY.wasPressed()) {
-            addLabelAtTarget(client, "LABEL");
-        }
         while (UNDO_KEY.wasPressed()) {
             undo(client);
         }
@@ -106,7 +102,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         Vec3d point = Vec3d.ofCenter(target);
         if (pendingArrowStart == null) {
             pendingArrowStart = point;
-            tell(client, "Начальная точка отмечена. Наведи прицел на конечный блок и нажми K ещё раз.");
+            tell(client, "Начальная точка отмечена. Наведи прицел на конечный блок и нажми ту же клавишу стрелки ещё раз.");
             return;
         }
 
@@ -126,7 +122,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
 
         if (pendingAreaStart == null) {
             pendingAreaStart = target.toImmutable();
-            tell(client, "Первый угол отмечен. Наведи прицел на противоположный угол и нажми J ещё раз.");
+            tell(client, "Первый угол отмечен. Наведи прицел на противоположный угол и нажми ту же клавишу контура ещё раз.");
             return;
         }
 
