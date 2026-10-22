@@ -14,7 +14,18 @@ class AnnotationTest {
                 "minecraft:overworld"
         );
 
-        assertEquals("16 blocks", annotation.displayText());
+        assertEquals("16 блоков", annotation.displayText());
+    }
+
+    @Test
+    void usesRussianSingularForOneBlock() {
+        Annotation annotation = Annotation.arrow(
+                new Vec3d(0.5, 64.5, 0.5),
+                new Vec3d(0.5, 64.5, 0.5),
+                "minecraft:overworld"
+        );
+
+        assertEquals("1 блок", annotation.displayText());
     }
 
     @Test
@@ -25,7 +36,7 @@ class AnnotationTest {
                 "minecraft:overworld"
         );
 
-        assertEquals("16 × 12 × 8 blocks", annotation.displayText());
+        assertEquals("16 × 12 × 8 блоков", annotation.displayText());
     }
 
     @Test

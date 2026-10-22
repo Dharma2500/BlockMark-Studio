@@ -82,9 +82,21 @@ public final class Annotation {
             long width = Math.abs(Math.round(x2 - x1)) + 1L;
             long height = Math.abs(Math.round(y2 - y1)) + 1L;
             long depth = Math.abs(Math.round(z2 - z1)) + 1L;
-            return width + " × " + depth + " × " + height + " blocks";
+            return width + " × " + depth + " × " + height + " блоков";
         }
         return text == null || text.isBlank() ? "LABEL" : text;
+    }
+
+    private static String russianBlocksWord(long count) {
+        long n = Math.abs(count) % 100;
+        if (n >= 11 && n <= 14) {
+            return "блоков";
+        }
+        return switch ((int) (Math.abs(count) % 10)) {
+            case 1 -> "блок";
+            case 2, 3, 4 -> "блока";
+            default -> "блоков";
+        };
     }
 
     private static String measurementLabel(Vec3d start, Vec3d end) {
@@ -96,10 +108,10 @@ public final class Annotation {
         // On a single axis, include both selected blocks: centers 15 blocks apart make a 16-block row.
         if (nonZeroAxes <= 1) {
             long count = Math.round(dx + dy + dz) + 1L;
-            return count + (count == 1 ? " block" : " blocks");
+            return count + " " + russianBlocksWord(count) + "";
         }
 
         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        return String.format(Locale.ROOT, "%.1f blocks", distance);
+        return String.format(Locale.ROOT, "%.1f блоков", distance);
     }
 }

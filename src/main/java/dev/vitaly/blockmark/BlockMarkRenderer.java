@@ -42,6 +42,9 @@ public final class BlockMarkRenderer {
     private static final BufferAllocator THROUGH_WALL_BUFFER = new BufferAllocator(4096);
     private static final VertexConsumerProvider.Immediate THROUGH_WALL_CONSUMERS =
             VertexConsumerProvider.immediate(THROUGH_WALL_BUFFER);
+    private static final BufferAllocator LABEL_BUFFER = new BufferAllocator(16_384);
+    private static final VertexConsumerProvider.Immediate LABEL_CONSUMERS =
+            VertexConsumerProvider.immediate(LABEL_BUFFER);
 
     private BlockMarkRenderer() {
     }
@@ -121,16 +124,23 @@ public final class BlockMarkRenderer {
         Vec3d reference = Math.abs(direction.y) > 0.92 ? new Vec3d(1, 0, 0) : new Vec3d(0, 1, 0);
         Vec3d side = direction.crossProduct(reference).normalize();
         Vec3d secondSide = direction.crossProduct(side).normalize();
-        double headLength = Math.min(0.65, Math.max(0.28, start.distanceTo(end) * 0.12));
-        double headWidth = headLength * 0.48;
-        Vec3d base = end.subtract(direction.multiply(headLength));
+        double headLength = Math.min(0.85, Math.max(0.42, start.distanceTo(end) * 0.12));
+        double headWidth = headLength * 0.52;
 
-        drawGlowSegment(consumer, matrix, end, base.add(side.multiply(headWidth)));
-        drawGlowSegment(consumer, matrix, end, base.subtract(side.multiply(headWidth)));
-        drawGlowSegment(consumer, matrix, end, base.add(secondSide.multiply(headWidth)));
-        drawGlowSegment(consumer, matrix, end, base.subtract(secondSide.multiply(headWidth)));
+        // Head at the end of the arrow.
+        Vec3d endBase = end.subtract(direction.multiply(headLength));
+        drawGlowSegment(consumer, matrix, end, endBase.add(side.multiply(headWidth)));
+        drawGlowSegment(consumer, matrix, end, endBase.subtract(side.multiply(headWidth)));
+        drawGlowSegment(consumer, matrix, end, endBase.add(secondSide.multiply(headWidth)));
+        drawGlowSegment(consumer, matrix, end, endBase.subtract(secondSide.multiply(headWidth)));
+
+        // Matching head at the start makes this a two-way measurement arrow.
+        Vec3d startBase = start.add(direction.multiply(headLength));
+        drawGlowSegment(consumer, matrix, start, startBase.add(side.multiply(headWidth)));
+        drawGlowSegment(consumer, matrix, start, startBase.subtract(side.multiply(headWidth)));
+        drawGlowSegment(consumer, matrix, start, startBase.add(secondSide.multiply(headWidth)));
+        drawGlowSegment(consumer, matrix, start, startBase.subtract(secondSide.multiply(headWidth)));
     }
-
 
     /**
      * Draw a dim, blended secondary pass with depth testing disabled.
@@ -155,16 +165,28 @@ public final class BlockMarkRenderer {
             Vec3d reference = Math.abs(direction.y) > 0.92 ? new Vec3d(1, 0, 0) : new Vec3d(0, 1, 0);
             Vec3d side = direction.crossProduct(reference).normalize();
             Vec3d secondSide = direction.crossProduct(side).normalize();
-            double headLength = Math.min(0.65, Math.max(0.28, start.distanceTo(end) * 0.12));
-            double headWidth = headLength * 0.48;
-            Vec3d base = end.subtract(direction.multiply(headLength));
-            points.add(base.add(side.multiply(headWidth)));
+            double headLength = Math.min(0.85, Math.max(0.42, start.distanceTo(end) * 0.12));
+            double headWidth = headLength * 0.52;
+
+            Vec3d endBase = end.subtract(direction.multiply(headLength));
             points.add(end);
-            points.add(base.subtract(side.multiply(headWidth)));
+            points.add(endBase.add(side.multiply(headWidth)));
             points.add(end);
-            points.add(base.add(secondSide.multiply(headWidth)));
+            points.add(endBase.subtract(side.multiply(headWidth)));
             points.add(end);
-            points.add(base.subtract(secondSide.multiply(headWidth)));
+            points.add(endBase.add(secondSide.multiply(headWidth)));
+            points.add(end);
+            points.add(endBase.subtract(secondSide.multiply(headWidth)));
+
+            Vec3d startBase = start.add(direction.multiply(headLength));
+            points.add(start);
+            points.add(startBase.add(side.multiply(headWidth)));
+            points.add(start);
+            points.add(startBase.subtract(side.multiply(headWidth)));
+            points.add(start);
+            points.add(startBase.add(secondSide.multiply(headWidth)));
+            points.add(start);
+            points.add(startBase.subtract(secondSide.multiply(headWidth)));
         }
         drawThroughWallLines(matrix, points);
     }
@@ -214,13 +236,13 @@ public final class BlockMarkRenderer {
                     : delta.normalize();
 
             hidden.vertex(matrix, (float) from.x, (float) from.y, (float) from.z)
-                    .color(35, 215, 240, 105)
+                    .color(35, 215, 240, 115)
                     .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
-                    .lineWidth(5.0f);
+                    .lineWidth(4.0f);
             hidden.vertex(matrix, (float) to.x, (float) to.y, (float) to.z)
-                    .color(35, 205, 225, 58)
+                    .color(35, 215, 240, 115)
                     .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
-                    .lineWidth(1.0f);
+                    .lineWidth(4.0f);
         }
         THROUGH_WALL_CONSUMERS.draw();
     }
@@ -292,14 +314,17 @@ public final class BlockMarkRenderer {
         matrices.push();
         matrices.translate(worldPosition.x - camera.x, worldPosition.y - camera.y, worldPosition.z - camera.z);
         matrices.multiply(client.gameRenderer.getCamera().getRotation());
-                // Grow world-space text with distance so its apparent on-screen size stays readable.
-        float textScale = (float) Math.max(0.025, Math.min(0.12, camera.distanceTo(worldPosition) * 0.0024));
+        // Scale with viewing distance to keep the measurement legible from nearby and far away.
+        float textScale = (float) Math.max(0.075, Math.min(0.18, camera.distanceTo(worldPosition) * 0.0045));
         matrices.scale(-textScale, -textScale, textScale);
 
         TextRenderer renderer = client.textRenderer;
         float x = -renderer.getWidth(text) / 2.0f;
         renderer.draw(text, x, 0, WHITE, true, matrices.peek().getPositionMatrix(),
                 consumers, TextRenderer.TextLayerType.SEE_THROUGH, LABEL_BACKGROUND, 15728880);
+        if (consumers instanceof VertexConsumerProvider.Immediate immediate) {
+            immediate.draw();
+        }
         matrices.pop();
     }
 }
