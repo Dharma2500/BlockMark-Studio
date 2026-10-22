@@ -3,7 +3,7 @@ package dev.vitaly.blockmark;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -32,10 +32,10 @@ public final class BlockMarkRenderer {
             return;
         }
 
-        Vec3d camera = client.gameRenderer.getCamera().getPos();
+        Vec3d camera = client.gameRenderer.getCamera().getCameraPos();
         MatrixStack matrices = context.matrices();
         VertexConsumerProvider consumers = context.consumers();
-        VertexConsumer lines = consumers.getBuffer(RenderLayer.getLines());
+        VertexConsumer lines = consumers.getBuffer(RenderLayers.lines());
 
         matrices.push();
         matrices.translate(-camera.x, -camera.y, -camera.z);
