@@ -92,21 +92,21 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         }
         while (TOGGLE_KEY.wasPressed()) {
             enabled = !enabled;
-            tell(client, "Annotations " + (enabled ? "shown" : "hidden") + ".");
+            tell(client, "Отметки " + (enabled ? "показаны" : "скрыты") + ".");
         }
     }
 
     private static void handleArrowKey(MinecraftClient client) {
         BlockPos target = getTargetedBlock(client);
         if (target == null) {
-            tell(client, "Point at a block first.");
+            tell(client, "Сначала наведи прицел на блок.");
             return;
         }
 
         Vec3d point = Vec3d.ofCenter(target);
         if (pendingArrowStart == null) {
             pendingArrowStart = point;
-            tell(client, "Start point set. Aim at the end block and press K again.");
+            tell(client, "Начальная точка отмечена. Наведи прицел на конечный блок и нажми K ещё раз.");
             return;
         }
 
@@ -114,7 +114,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         ANNOTATIONS.add(annotation);
         pendingArrowStart = null;
         saveStore();
-        tell(client, "Arrow added: " + annotation.displayText() + ".");
+        tell(client, "Стрелка создана: " + annotation.displayText() + ".");
     }
 
     private static void handleAreaKey(MinecraftClient client) {
@@ -126,7 +126,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
 
         if (pendingAreaStart == null) {
             pendingAreaStart = target.toImmutable();
-            tell(client, "First corner set. Aim at the opposite corner and press J again.");
+            tell(client, "Первый угол отмечен. Наведи прицел на противоположный угол и нажми J ещё раз.");
             return;
         }
 
@@ -137,12 +137,12 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         ));
         pendingAreaStart = null;
         saveStore();
-        tell(client, "Area outline added.");
+        tell(client, "Контур области создан.");
     }
 
     private static void addLabelAtTarget(MinecraftClient client, String text) {
         if (client.world == null) {
-            tell(client, "Enter a world first.");
+            tell(client, "Сначала войди в мир.");
             return;
         }
         BlockPos target = getTargetedBlock(client);
@@ -154,7 +154,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         Vec3d anchor = new Vec3d(target.getX() + 0.5, target.getY() + 1.25, target.getZ() + 0.5);
         ANNOTATIONS.add(Annotation.label(anchor, text, currentDimension(client)));
         saveStore();
-        tell(client, "Label added: " + text + ".");
+        tell(client, "Подпись добавлена: " + text + ".");
     }
 
     private static BlockPos getTargetedBlock(MinecraftClient client) {
@@ -183,11 +183,11 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
                                                 if (annotation.type == Annotation.Type.LABEL) {
                                                     annotation.text = text;
                                                     saveStore();
-                                                    tell(MinecraftClient.getInstance(), "Last label renamed.");
+                                                    tell(MinecraftClient.getInstance(), "Последняя подпись изменена.");
                                                     return 1;
                                                 }
                                             }
-                                            tell(MinecraftClient.getInstance(), "There is no label to rename.");
+                                            tell(MinecraftClient.getInstance(), "Нет подписи, которую можно изменить.");
                                             return 0;
                                         })))
                         .then(ClientCommandManager.literal("undo").executes(context -> {
@@ -199,7 +199,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
                             pendingArrowStart = null;
                             pendingAreaStart = null;
                             saveStore();
-                            tell(MinecraftClient.getInstance(), "Annotations cleared for this world.");
+                            tell(MinecraftClient.getInstance(), "Отметки текущего мира удалены.");
                             return 1;
                         }))
                         .then(ClientCommandManager.literal("toggle").executes(context -> {
@@ -208,7 +208,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
                             return 1;
                         }))
                         .then(ClientCommandManager.literal("list").executes(context -> {
-                            tell(MinecraftClient.getInstance(), "Saved annotations: " + ANNOTATIONS.size() + ".");
+                            tell(MinecraftClient.getInstance(), "Сохранено отметок: " + ANNOTATIONS.size() + ".");
                             return 1;
                         }))
                 )
@@ -219,12 +219,12 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
         if (ANNOTATIONS.isEmpty()) {
             pendingArrowStart = null;
             pendingAreaStart = null;
-            tell(client, "Nothing to undo.");
+            tell(client, "Нечего отменять.");
             return;
         }
         ANNOTATIONS.remove(ANNOTATIONS.size() - 1);
         saveStore();
-        tell(client, "Last annotation removed.");
+        tell(client, "Последняя отметка удалена.");
     }
 
     private static void refreshWorldStore(MinecraftClient client) {
@@ -268,7 +268,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
                 LOGGER.info("Loaded {} annotations for {}", ANNOTATIONS.size(), key);
             } catch (IOException | RuntimeException exception) {
                 LOGGER.error("Could not load BlockMark data from {}", file, exception);
-                tell(client, "Could not load saved annotations. Check latest.log.");
+                tell(client, "Не удалось загрузить отметки. Подробности в latest.log.");
             }
         }
     }
@@ -320,7 +320,7 @@ public final class BlockMarkStudioClient implements ClientModInitializer {
             }
         } catch (IOException exception) {
             LOGGER.error("Could not save BlockMark annotations to {}", file, exception);
-            tell(MinecraftClient.getInstance(), "Could not save annotations. Check latest.log.");
+            tell(MinecraftClient.getInstance(), "Не удалось сохранить отметки. Подробности в latest.log.");
         }
     }
 
