@@ -31,6 +31,18 @@ jobs:
       - name: Compile and test
         run: gradle --no-daemon clean build
 
+      - name: Inspect mapped Minecraft render-layer API
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "Looking for the mapped RenderLayers class in Fabric Loom caches"
+          find "$HOME/.gradle/caches/fabric-loom" -type f -name '*.jar' -print0 2>/dev/null | while IFS= read -r -d '' jarfile; do
+            if jar tf "$jarfile" 2>/dev/null | grep -qx 'net/minecraft/client/render/RenderLayers.class'; then
+              echo "FOUND_CLASS_JAR=$jarfile"
+              javap -classpath "$jarfile" -p net.minecraft.client.render.RenderLayers
+            fi
+          done
       - name: Upload distributable JAR
         uses: actions/upload-artifact@v4
         with:
