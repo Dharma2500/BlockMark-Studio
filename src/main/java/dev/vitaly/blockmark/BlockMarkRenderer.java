@@ -26,8 +26,8 @@ public final class BlockMarkRenderer {
     private static final int CYAN_R = 49;
     private static final int CYAN_G = 230;
     private static final int CYAN_B = 245;
-    private static final double LABEL_MAX_DISTANCE = 48.0;
-    private static final double LABEL_FULL_SIZE_DISTANCE = 8.0;
+    private static final double LABEL_MAX_DISTANCE = 24.0;
+    private static final double LABEL_FULL_SIZE_DISTANCE = 5.0;
 
     // Reuse Minecraft's native line shader/vertex format, but disable the depth test
     // for the secondary low-alpha pass. The normal pass remains depth-tested.
@@ -142,10 +142,11 @@ public final class BlockMarkRenderer {
             int y = (int) Math.round((1.0 - projected.y) * 0.5 * screenHeight);
             float sizeScale = distance <= LABEL_FULL_SIZE_DISTANCE
                     ? 1.0f
-                    : (float) Math.max(0.38, 1.0 - (distance - LABEL_FULL_SIZE_DISTANCE) * 0.022);
-            float opacity = distance <= 28.0
+                    : (float) Math.max(0.38, 1.0 - (distance - LABEL_FULL_SIZE_DISTANCE) * 0.023);
+            double fadeStartDistance = 14.0;
+            float opacity = distance <= fadeStartDistance
                     ? 1.0f
-                    : (float) Math.max(0.0, (LABEL_MAX_DISTANCE - distance) / (LABEL_MAX_DISTANCE - 28.0));
+                    : (float) Math.max(0.0, (LABEL_MAX_DISTANCE - distance) / (LABEL_MAX_DISTANCE - fadeStartDistance));
             drawMeasurementBadge(context, client, annotation.displayText(), annotation.detailText(), x, y,
                     sizeScale, opacity, screenWidth, screenHeight, occupiedRects);
         }
