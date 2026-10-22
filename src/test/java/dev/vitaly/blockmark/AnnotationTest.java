@@ -14,7 +14,7 @@ class AnnotationTest {
                 "minecraft:overworld"
         );
 
-        assertEquals("16 блоков", annotation.displayText());
+        assertEquals("16", annotation.displayText());
     }
 
     @Test
@@ -25,7 +25,7 @@ class AnnotationTest {
                 "minecraft:overworld"
         );
 
-        assertEquals("1 блок", annotation.displayText());
+        assertEquals("1", annotation.displayText());
     }
 
     @Test
@@ -36,8 +36,8 @@ class AnnotationTest {
                 "minecraft:overworld"
         );
 
-        assertEquals("1 536 блоков", annotation.displayText());
-        assertEquals("16 × 12 × 8", annotation.detailText());
+        assertEquals("16 × 12 × 8", annotation.displayText());
+        assertEquals("", annotation.detailText());
     }
 
     @Test

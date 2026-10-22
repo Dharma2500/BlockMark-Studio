@@ -79,20 +79,16 @@ public final class Annotation {
             return measurementLabel(start(), end());
         }
         if (type == Type.AREA) {
-            long total = areaWidth() * areaHeight() * areaDepth();
-            return String.format(Locale.ROOT, "%,d", total).replace(',', ' ') + " блоков";
+            return areaWidth() + " × " + areaDepth() + " × " + areaHeight();
         }
         return text == null || text.isBlank() ? "LABEL" : text;
     }
 
     /**
-     * A smaller second line used by the HUD measurement badge for areas.
+     * HUD labels are intentionally one-line and text-only.
      */
     public String detailText() {
-        if (type != Type.AREA) {
-            return "";
-        }
-        return areaWidth() + " × " + areaDepth() + " × " + areaHeight();
+        return "";
     }
 
     private long areaWidth() {
@@ -107,18 +103,6 @@ public final class Annotation {
         return Math.abs(Math.round(z2 - z1)) + 1L;
     }
 
-    private static String russianBlocksWord(long count) {
-        long n = Math.abs(count) % 100;
-        if (n >= 11 && n <= 14) {
-            return "блоков";
-        }
-        return switch ((int) (Math.abs(count) % 10)) {
-            case 1 -> "блок";
-            case 2, 3, 4 -> "блока";
-            default -> "блоков";
-        };
-    }
-
     private static String measurementLabel(Vec3d start, Vec3d end) {
         double dx = Math.abs(end.x - start.x);
         double dy = Math.abs(end.y - start.y);
@@ -128,10 +112,10 @@ public final class Annotation {
         // On a single axis, include both selected blocks: centers 15 blocks apart make a 16-block row.
         if (nonZeroAxes <= 1) {
             long count = Math.round(dx + dy + dz) + 1L;
-            return count + " " + russianBlocksWord(count) + "";
+            return Long.toString(count);
         }
 
         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        return String.format(Locale.ROOT, "%.1f блоков", distance);
+        return String.format(Locale.ROOT, "%.1f", distance);
     }
 }

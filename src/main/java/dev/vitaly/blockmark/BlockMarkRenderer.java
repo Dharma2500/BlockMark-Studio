@@ -176,39 +176,29 @@ public final class BlockMarkRenderer {
             return;
         }
 
-        final float textScale = 1.65f;
+        // This is intentionally text-only: no panel, fill, border or backing rectangle.
+        // Area dimensions are supplied as the primary text too, so there is only one line.
+        final float scale = 1.65f * sizeScale;
         TextRenderer textRenderer = client.textRenderer;
-        boolean hasSecondary = secondary != null && !secondary.isBlank();
+        int textWidth = Math.max(8, (int) Math.ceil(textRenderer.getWidth(primary) * scale));
+        int textHeight = Math.max(8, (int) Math.ceil(9.0f * scale));
+        int pad = Math.max(2, Math.round(3.0f * sizeScale));
 
-        // Size panel for the larger of the count and its dimension subtitle.
-        int widestText = textRenderer.getWidth(primary);
-        if (hasSecondary) {
-            widestText = Math.max(widestText, textRenderer.getWidth(secondary));
-        }
-        int panelWidth = Math.max(112, (int) Math.ceil(widestText * textScale + 28));
-        int basePanelHeight = hasSecondary ? 48 : 32;
-        panelWidth = Math.max(40, Math.round(panelWidth * sizeScale));
-        int panelHeight = Math.max(16, Math.round(basePanelHeight * sizeScale));
-        int rim = Math.max(1, Math.round(2.0f * sizeScale));
+        int centerX = Math.max(textWidth / 2 + 2,
+                Math.min(screenWidth - textWidth / 2 - 2, desiredCenterX));
+        int centerY = Math.max(textHeight / 2 + 2,
+                Math.min(screenHeight - textHeight / 2 - 2, desiredCenterY));
 
-        int halfWidth = panelWidth / 2;
-        int halfHeight = panelHeight / 2;
-        int centerX = Math.max(halfWidth + rim + 2,
-                Math.min(screenWidth - halfWidth - rim - 2, desiredCenterX));
-        int centerY = Math.max(halfHeight + rim + 2,
-                Math.min(screenHeight - halfHeight - rim - 2, desiredCenterY));
-
-        // If several annotations project to almost the same pixel (for example an arrow and
-        // a box around it), move later badges slightly up/down instead of drawing them on top.
-        int step = panelHeight + Math.max(5, Math.round(8.0f * sizeScale));
+        // If two labels land on the same part of the screen, nudge them apart vertically.
+        int step = textHeight + pad;
         int[] offsets = {0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5};
         for (int offset : offsets) {
-            int candidateY = Math.max(halfHeight + rim + 2,
-                    Math.min(screenHeight - halfHeight - rim - 2, centerY + offset * step));
-            int left = centerX - halfWidth;
-            int top = candidateY - halfHeight;
-            int right = centerX + (panelWidth - halfWidth);
-            int bottom = candidateY + (panelHeight - halfHeight);
+            int candidateY = Math.max(textHeight / 2 + 2,
+                    Math.min(screenHeight - textHeight / 2 - 2, centerY + offset * step));
+            int left = centerX - textWidth / 2;
+            int top = candidateY - textHeight / 2;
+            int right = centerX + (textWidth + 1) / 2;
+            int bottom = candidateY + (textHeight + 1) / 2;
             boolean overlaps = false;
             for (int[] rect : occupiedRects) {
                 if (left < rect[2] && right > rect[0] && top < rect[3] && bottom > rect[1]) {
@@ -222,34 +212,19 @@ public final class BlockMarkRenderer {
             }
         }
 
-        int left = centerX - halfWidth;
-        int top = centerY - halfHeight;
-        int right = centerX + (panelWidth - halfWidth);
-        int bottom = centerY + (panelHeight - halfHeight);
-        occupiedRects.add(new int[] {left - rim, top - rim, right + rim, bottom + rim});
+        int left = centerX - textWidth / 2 - pad;
+        int top = centerY - textHeight / 2 - pad;
+        int right = centerX + (textWidth + 1) / 2 + pad;
+        int bottom = centerY + (textHeight + 1) / 2 + pad;
+        occupiedRects.add(new int[] {left, top, right, bottom});
 
-        // More transparent navy fill with a softly translucent turquoise rim.
-        context.fill(left - rim, top - rim, right + rim, bottom + rim,
-                withOpacity(0xD931E6F5, opacity));
-        context.fill(left, top, right, bottom,
-                withOpacity(0x990A1622, opacity));
-
+        int color = withOpacity(0xFFFFFFFF, opacity);
         var guiMatrices = context.getMatrices();
         guiMatrices.pushMatrix();
-        guiMatrices.translate((float) centerX, (float) (top + Math.max(2, Math.round(5.0f * sizeScale))));
-        guiMatrices.scale(textScale * sizeScale, textScale * sizeScale);
-        context.drawCenteredTextWithShadow(textRenderer, primary, 0, 0,
-                withOpacity(0xFFFFFFFF, opacity));
+        guiMatrices.translate((float) centerX, (float) centerY);
+        guiMatrices.scale(scale, scale);
+        context.drawCenteredTextWithShadow(textRenderer, primary, 0, -4, color);
         guiMatrices.popMatrix();
-
-        if (hasSecondary) {
-            guiMatrices.pushMatrix();
-            guiMatrices.translate((float) centerX, (float) (top + Math.round(29.0f * sizeScale)));
-            guiMatrices.scale(sizeScale, sizeScale);
-            context.drawCenteredTextWithShadow(textRenderer, secondary, 0, 0,
-                    withOpacity(0xFF8FF7FF, opacity));
-            guiMatrices.popMatrix();
-        }
     }
 
     private static int withOpacity(int argb, float opacity) {
