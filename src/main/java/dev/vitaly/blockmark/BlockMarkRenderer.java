@@ -215,10 +215,12 @@ public final class BlockMarkRenderer {
 
             hidden.vertex(matrix, (float) from.x, (float) from.y, (float) from.z)
                     .color(35, 205, 225, 58)
-                    .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z);
+                    .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
+                    .lineWidth(1.0f);
             hidden.vertex(matrix, (float) to.x, (float) to.y, (float) to.z)
                     .color(35, 205, 225, 58)
-                    .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z);
+                    .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
+                    .lineWidth(1.0f);
         }
         THROUGH_WALL_CONSUMERS.draw();
     }
@@ -285,10 +287,12 @@ public final class BlockMarkRenderer {
                                    Vec3d normal) {
         consumer.vertex(matrix, (float) from.x, (float) from.y, (float) from.z)
                 .color(red, green, blue, alpha)
-                .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z);
+                .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
+                    .lineWidth(1.0f);
         consumer.vertex(matrix, (float) to.x, (float) to.y, (float) to.z)
                 .color(red, green, blue, alpha)
-                .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z);
+                .normal(matrix, (float) normal.x, (float) normal.y, (float) normal.z)
+                    .lineWidth(1.0f);
     }
 
     private static void drawBillboardText(MinecraftClient client, VertexConsumerProvider consumers,
