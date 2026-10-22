@@ -6,6 +6,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Vec3d;
 
@@ -17,6 +18,8 @@ public final class BlockMarkRenderer {
     private static final int CYAN_B = 245;
     private static final int WHITE = 0xFFFFFFFF;
     private static final int LABEL_BACKGROUND = 0xC90A1720;
+    private static final BufferAllocator THROUGH_WALL_BUFFER = new BufferAllocator(4096);
+    private static final VertexConsumerProvider.Immediate THROUGH_WALL_CONSUMERS = VertexConsumerProvider.immediate(THROUGH_WALL_BUFFER);
 
     private BlockMarkRenderer() {
     }
@@ -46,8 +49,14 @@ public final class BlockMarkRenderer {
                 continue;
             }
             switch (annotation.type) {
-                case ARROW -> drawArrow(lines, matrix, annotation);
-                case AREA -> drawArea(lines, matrix, annotation);
+                case ARROW -> {
+                    drawArrow(lines, matrix, annotation);
+                    drawThroughWallArrow(matrix, annotation);
+                }
+                case AREA -> {
+                    drawArea(lines, matrix, annotation);
+                    drawThroughWallArea(matrix, annotation);
+                }
                 case LABEL -> { }
             }
         }
@@ -98,6 +107,84 @@ public final class BlockMarkRenderer {
         drawGlowSegment(consumer, matrix, end, base.subtract(side.multiply(headWidth)));
         drawGlowSegment(consumer, matrix, end, base.add(secondSide.multiply(headWidth)));
         drawGlowSegment(consumer, matrix, end, base.subtract(secondSide.multiply(headWidth)));
+    }
+
+
+    /**
+     * A low-alpha debug line strip uses the vanilla see-through line pipeline.
+     * The regular line pass remains depth-tested; this second pass only leaves a
+     * faint turquoise trace where the main shape is occluded by opaque blocks.
+     */
+    private static void drawThroughWallArrow(MatrixStack.Entry matrix, Annotation annotation) {
+        Vec3d start = annotation.start();
+        Vec3d end = annotation.end();
+        Vec3d direction = end.subtract(start);
+        List<Vec3d> points = new java.util.ArrayList<>();
+        points.add(start);
+        points.add(end);
+
+        if (direction.lengthSquared() < 0.0001) {
+            double r = 0.18;
+            points.add(end.add(r, 0, 0));
+            points.add(end.add(-r, 0, 0));
+            points.add(end.add(0, 0, r));
+            points.add(end.add(0, 0, -r));
+        } else {
+            direction = direction.normalize();
+            Vec3d reference = Math.abs(direction.y) > 0.92 ? new Vec3d(1, 0, 0) : new Vec3d(0, 1, 0);
+            Vec3d side = direction.crossProduct(reference).normalize();
+            Vec3d secondSide = direction.crossProduct(side).normalize();
+            double headLength = Math.min(0.65, Math.max(0.28, start.distanceTo(end) * 0.12));
+            double headWidth = headLength * 0.48;
+            Vec3d base = end.subtract(direction.multiply(headLength));
+            points.add(base.add(side.multiply(headWidth)));
+            points.add(end);
+            points.add(base.subtract(side.multiply(headWidth)));
+            points.add(end);
+            points.add(base.add(secondSide.multiply(headWidth)));
+            points.add(end);
+            points.add(base.subtract(secondSide.multiply(headWidth)));
+        }
+        drawThroughWallStrip(matrix, points);
+    }
+
+    private static void drawThroughWallArea(MatrixStack.Entry matrix, Annotation annotation) {
+        double minX = Math.min(annotation.x1, annotation.x2);
+        double minY = Math.min(annotation.y1, annotation.y2);
+        double minZ = Math.min(annotation.z1, annotation.z2);
+        double maxX = Math.max(annotation.x1, annotation.x2) + 1.0;
+        double maxY = Math.max(annotation.y1, annotation.y2) + 1.0;
+        double maxZ = Math.max(annotation.z1, annotation.z2) + 1.0;
+
+        Vec3d[] c = {
+                new Vec3d(minX, minY, minZ), new Vec3d(maxX, minY, minZ),
+                new Vec3d(maxX, minY, maxZ), new Vec3d(minX, minY, maxZ),
+                new Vec3d(minX, maxY, minZ), new Vec3d(maxX, maxY, minZ),
+                new Vec3d(maxX, maxY, maxZ), new Vec3d(minX, maxY, maxZ)
+        };
+
+        // One continuous walk through all 12 box edges. A few edges are retraced
+        // to keep the line strip connected; the extra faint pixels are intentional.
+        int[] walk = {0, 1, 2, 3, 0, 4, 5, 1, 5, 6, 2, 6, 7, 3, 7, 4, 5};
+        List<Vec3d> points = new java.util.ArrayList<>(walk.length);
+        for (int index : walk) {
+            points.add(c[index]);
+        }
+        drawThroughWallStrip(matrix, points);
+    }
+
+    private static void drawThroughWallStrip(MatrixStack.Entry matrix, List<Vec3d> points) {
+        if (points.size() < 2) {
+            return;
+        }
+
+        VertexConsumer hidden = THROUGH_WALL_CONSUMERS.getBuffer(RenderLayers.debugLineStrip(1.0));
+        for (Vec3d point : points) {
+            hidden.vertex(matrix, (float) point.x, (float) point.y, (float) point.z)
+                    .color(35, 205, 225, 58)
+                    .normal(matrix, 0.0f, 1.0f, 0.0f);
+        }
+        THROUGH_WALL_CONSUMERS.draw();
     }
 
     private static void drawArea(VertexConsumer consumer, MatrixStack.Entry matrix, Annotation annotation) {
